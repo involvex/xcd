@@ -37,9 +37,9 @@
 
 .NOTES
     Requires PowerShell 7+ for best experience.
-    Optional dependencies: glow, mdcat, bat, catimg, git.
+    Optional dependencies: glow, mdcat, bat, bun, catimg, git.
     Configure via ~/.xcd.json or environment variables:
-    - XCD_MD_VIEWER: markdown viewer (glow, mdcat, bat, bun)
+    - XCD_MD_VIEWER: markdown viewer (glow, mdcat, bun, bat)
     - XCD_IMAGE_VIEWER: image viewer (catimg)
     - XCD_SHOW_HIDDEN: show hidden files (true/false)
     - XCD_GIT_STATUS: show git status in listing (true/false)
@@ -104,8 +104,8 @@ function xcd {
 
 function Get-XcdConfig {
     $configPath = Join-Path $HOME '.xcd.json'
-    $defaultConfig = @{
-        MarkdownViewer  = 'auto'   # auto, glow, mdcat, bat, bun, cat
+$defaultConfig = @{
+        MarkdownViewer  = 'auto'   # auto, glow, mdcat, bun, bat, cat
         ImageViewer     = 'auto'   # auto, catimg
         ShowHidden      = $true
         GitStatus       = $true
@@ -303,7 +303,7 @@ function Invoke-XcdMarkdown {
 
     # If auto, use priority order
     if ($viewer -eq 'auto') {
-        $viewerPriority = @('glow', 'mdcat', 'bat', 'cat')
+        $viewerPriority = @('glow', 'mdcat', 'bun', 'bat', 'cat')
     }
     else {
         $viewerPriority = @($viewer)
@@ -314,6 +314,18 @@ function Invoke-XcdMarkdown {
             Get-Content -Path $Path -Raw
             return
         }
+        if ($v -eq 'bun') {
+                try {
+                    if ($IsWindows) {
+                        & cmd.exe /c bun $Path
+                    }
+                    else {
+                        bun $Path
+                    }
+                    return
+                }
+                catch { }
+            }
         if (Get-Command $v -ErrorAction SilentlyContinue) {
             try {
                 if ($v -eq 'bat' -or $v -eq 'batcat') {

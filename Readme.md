@@ -15,7 +15,10 @@ Extended `cd` for PowerShell with intelligent file handling, markdown/image view
 ## Installation
 
 ```powershell
-# Option 1: Copy to module path (recommended)
+# Option 1: One-liner install (recommended)
+irm "https://raw.githubusercontent.com/involvex/xcd/refs/heads/main/install.ps1" | iex
+
+# Option 2: Copy to module path (manual)
 $modPath = "$env:USERPROFILE\Documents\PowerShell\Modules\Xcd"
 Copy-Item D:\repos\xcd\* -Destination $modPath -Recurse -Force
 
@@ -24,9 +27,12 @@ Import-Module Xcd
 # Optional: replace cd entirely
 Set-Alias cd xcd
 
-# Option 2: Direct import (development)
+# Option 3: Direct import (development)
 Import-Module D:\repos\xcd\Xcd.psd1
 ```
+
+The one-liner downloads and installs to `$env:USERPROFILE\Documents\PowerShell\Modules\Xcd`.
+After installation, add `Import-Module Xcd` to your PowerShell profile (`$PROFILE`).
 
 ## Usage
 
@@ -70,7 +76,7 @@ Create `~/.xcd.json` (or run `xcd -EditConfig`):
 
 | Key | Values | Description |
 | ----- | -------- | ------------- |
-| `MarkdownViewer` | `auto`, `glow`, `mdcat`, `bat`, `bun`, `cat` | Markdown renderer priority |
+| `MarkdownViewer` | `auto`, `glow`, `mdcat`, `bun`, `bat`, `cat` | Markdown renderer priority |
 | `ImageViewer` | `auto`, `catimg` | Image preview tool |
 | `ShowHidden` | `true`, `false` | Show hidden files in listing |
 | `GitStatus` | `true`, `false` | Show git porcelain status |
@@ -90,6 +96,7 @@ Optional but recommended:
 | `glow` | Best markdown rendering | `scoop install glow` / `brew install glow` |
 | `mdcat` | Fast markdown with images | `cargo install mdcat` |
 | `bat` | Syntax highlighting | `scoop install bat` / `brew install bat` |
+| `bun` | Fast markdown rendering | `scoop install bun` / `brew install bun` / `curl -fsSL https://bun.sh/install | bash` |
 | `catimg` | Terminal image preview | `Import-Module I:\dev\catimg\catimg.ps1` |
 | `git` | Git status in listings | Built-in |
 
