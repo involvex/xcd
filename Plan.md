@@ -1,115 +1,78 @@
-**Kurzfassung:** In PowerShell (`pwsh`) funktioniert dies am schnellsten direkt über eine Funktion in deiner `$PROFILE`. Eine reine **Bun CLI** kann das Verzeichnis deiner Shell nicht direkt wechseln (da Kindprozesse den Parent-Prozess nicht verändern können) – Bun kann aber als Entscheider-Engine genutzt werden, wenn ein kleiner PWSH-Wrapper die Befehle ausführt. Gute Kurznamen dafür sind **`scd`** (Smart CD), **`c`** oder **`gcd`**.
+# xcd - Smart Directory Navigation (Implementation Status)
+
+## Current State: ✅ Working Module
+
+**Structure:**
+```
+xcd/
+├── Xcd.psd1      # Module manifest (v1.0.0)
+├── Xcd.psm1      # Module implementation
+└── Plan.md       # This file
+```
+
+**Usage:**
+```powershell
+Import-Module D:\repos\xcd\Xcd.psd1
+xcd                    # List directory with git status
+xcd ~/projects         # Navigate (supports ~, $env:VAR)
+xcd ./README.md        # View markdown (glow/mdcat/bat fallback)
+xcd src/main.ts        # View code file (bat syntax highlight)
+```
+
+**Features Implemented:**
+- ✅ Path resolution: `~`, `$env:VAR`, relative paths, spaces without quotes
+- ✅ Directory listing with git status (porcelain)
+- ✅ Markdown viewer priority: `$env:XCD_MD_VIEWER` → glow → mdcat → bat → bun → Get-Content
+- ✅ Code file viewing: bat/batcat syntax highlighting fallback to Get-Content
+- ✅ Tab completion (directories + *.md files)
+- ✅ Full comment-based help (`Get-Help xcd`)
+- ✅ Proper module structure with manifest
+- ✅ Error handling with friendly messages
 
 ---
 
-### 1. Pure PowerShell Lösung (Direkt im `$PROFILE`)
+## Remaining Enhancements (Priority Order)
 
-Füge dies in deine PowerShell-Profile-Datei ein (`code $PROFILE` in Terminal eingeben):
+### High
+- [ ] **Config file support** - `~/.xcd.json` for persistent settings (viewer, hidden files, colors)
+- [ ] **Better directory listing** - icons, sizes, colorized git status, tree view option
+- [ ] **Fuzzy directory jump** - integrate zoxide/fzf for `xcd foo` → jump to best match
+
+### Medium
+- [ ] **Image preview** - detect images, use `viu`/`chafa` if available
+- [ ] **Recent directories** - track frecency, suggest on empty `xcd`
+- [ ] **Alias `cd`** - optional `Set-Alias cd xcd` in profile
+
+### Low
+- [ ] **Tests** - Pester tests for each path type
+- [ ] **Publish to PSGallery** - `Publish-Module`
+- [ ] **Scoop/Chocolatey package** - for easy install
+
+---
+
+## On Bun CLI (Decision: Not Needed)
+
+The hybrid Bun+PWSH approach adds latency and complexity. Pure PowerShell module:
+- ✅ Direct shell navigation (no subprocess)
+- ✅ Instant startup (no runtime spin-up)
+- ✅ Native tab completion
+- ✅ Full access to PS providers (HKLM:, Cert:, etc.)
+
+Use Bun only if you need:
+- Complex fuzzy finding (fzf-style UI)
+- Cross-shell portability (would need wrappers per shell)
+- Heavy computation better suited to JS/TS
+
+---
+
+## Quick Install (for user)
 
 ```powershell
-function cd {
-    param(
-        [Parameter(ValueFromRemainingArguments = $true)]
-        [string]$Path
-    )
+# One-time: copy module to PSModulePath
+$modPath = Join-Path $env:USERPROFILE 'Documents\PowerShell\Modules\Xcd'
+Copy-Item D:\repos\xcd\* -Destination $modPath -Recurse -Force
 
-    # 1. Ohne Argument -> Verzeichnisinhalt anzeigen
-    if ([string]::IsNullOrWhiteSpace($Path)) {
-        Get-ChildItem
-        return
-    }
-
-    # Pfad auflösen
-    $resolved = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Path)
-
-    # 2. Pfad ist eine Datei -> Ausführen / Anzeigen
-    if (Test-Path -Path $resolved -PathType Leaf) {
-        if ($resolved -like "*.md") {
-            bun $resolved
-        } else {
-            Get-Content $resolved
-        }
-        return
-    }
-
-    # 3. Pfad ist ein Ordner -> Wechseln
-    if (Test-Path -Path $resolved -PathType Container) {
-        Set-Location -Path $resolved
-        return
-    }
-
-    # Fallback für Standard-Verhalten / Alias-Pfade
-    Set-Location -Path $Path
-}
-
+# Then in profile:
+Import-Module Xcd
+# Optional: Set-Alias cd xcd
 ```
-
----
-
-### 2. Bun CLI Varianten-Architektur
-
-Da Node/Bun in einem Kindprozess läuft, kann ein Aufruf von `bun run smartcd.ts /pfad` die Shell selbst nicht navigieren. Bun muss das **Kommando als Text ausgeben**, das die Shell dann ausführt.
-
-#### `smartcd.ts` (Bun Engine)
-
-```typescript
-import { existsSync, statSync } from "fs";
-
-const target = Bun.argv[2];
-
-if (!target) {
-  console.log("ACTION:LS");
-  process.exit(0);
-}
-
-if (existsSync(target)) {
-  const stat = statSync(target);
-  if (stat.isFile()) {
-    if (target.endsWith(".md")) {
-      console.log(`ACTION:BUN_MD|${target}`);
-    } else {
-      console.log(`ACTION:CAT|${target}`);
-    }
-    process.exit(0);
-  }
-  if (stat.isDirectory()) {
-    console.log(`ACTION:CD|${target}`);
-    process.exit(0);
-  }
-}
-
-console.log(`ACTION:CD|${target}`);
-
-```
-
-#### PWSH-Wrapper in `$PROFILE`
-
-```powershell
-function scd {
-    param([string]$Path)
-    $output = bun run "C:\path\to\smartcd.ts" "$Path"
-    
-    if ($output -match '^ACTION:(?<cmd>[^|]+)(\|(?<target>.*))?$') {
-        $action = $Matches['cmd']
-        $target = $Matches['target']
-
-        switch ($action) {
-            "LS"     { Get-ChildItem }
-            "CD"     { Set-Location -Path $target }
-            "CAT"    { Get-Content -Path $target }
-            "BUN_MD" { bun $target }
-        }
-    }
-}
-
-```
-
----
-
-### 3. Namensvorschläge für den Befehl
-
-* **`scd`** (*Smart CD*) – Die intuitivste Wahl, behält den Bezug zu `cd` bei.
-* **`c`** – Minimalistisches Single-Char Alias für maximale Geschwindigkeit.
-* **`gcd`** (*Go CD* / *Get CD*) – Schnell zu tippen auf der Home-Row.
-* **`xcd`** (*Extended CD*) – Signalisiert erweiterte Funktionalität.
-* **`v`** (*Visit*) – Navigiert oder betrachtet Dateiinhalte je nach Typ.
