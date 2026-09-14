@@ -25,16 +25,25 @@ xcd src/main.ts        # View code file (bat syntax highlight)
 xcd image.png          # View image (catimg)
 xcd -ShowConfig        # Display config
 xcd -EditConfig        # Open ~/.xcd.json in editor
+
+# Enhanced listings
+xcd -Format tree       # Tree view
+xcd -Format long       # Detailed listing
+xcd -Format columns    # Column layout
+xcd -Sort Size -Descending  # Sort by size
+xcd -Tree              # Shortcut for tree view
+xcd -Long              # Shortcut for long format
 ```
 
 **Features Implemented:**
 
 - ✅ Path resolution: `~`, `$env:VAR`, relative paths, spaces without quotes
 - ✅ Directory listing with git status (porcelain)
+- ✅ **Enhanced directory listings**: multiple formats (default, long, tree, columns), sorting (Name, Size, Time, Type), human-readable sizes, color schemes
 - ✅ Markdown viewer priority: config → glow → mdcat → bat → cat fallback
 - ✅ Image viewer: catimg (with file info fallback)
 - ✅ Code file viewing: bat/batcat syntax highlighting fallback to Get-Content
-- ✅ Tab completion (directories + *.md + image files)
+- ✅ Tab completion (directories + *.md + image files + parameters)
 - ✅ Full comment-based help (`Get-Help xcd`)
 - ✅ Config file: `~/.xcd.json` with env var overrides (`XCD_*`)
 - ✅ Config management: `xcd -ShowConfig`, `xcd -EditConfig`
@@ -49,12 +58,10 @@ xcd -EditConfig        # Open ~/.xcd.json in editor
 
 - [ ] **Fuzzy directory jump** - integrate zoxide/fzf for `xcd foo` → jump to best match
 - [ ] **Recent directories** - track frecency, suggest on empty `xcd`
-- [ ] **Better directory listing** - sizes, colorized git status, tree view option
 
 ### Medium
 
 - [ ] **Alias `cd`** - optional `Set-Alias cd xcd` in profile
-- [ ] **Color schemes** - implement `Colors` config (dark/light/default)
 - [ ] **Tests** - Pester tests for each path type
 
 ### Low
