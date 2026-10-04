@@ -5,12 +5,12 @@ Extended `cd` for PowerShell with intelligent file handling, markdown/image view
 ## Features
 
 - **Smart navigation**: `xcd` with no args lists directory, directory paths `cd` into them
-- **File viewing**: Markdown (glow/mdcat/bat), images (catimg), code (bat syntax highlight)
+- **File viewing**: Markdown (glow/mdcat/bat), images (catimg), video (mpv / bun-terminal-media-player), code (bat syntax highlight)
 - **Path expansion**: `~`, `$env:VAR`, relative paths, spaces without quotes
 - **Git awareness**: Shows git status (clean/modified/untracked) in directory listings
 - **Enhanced listings**: Multiple formats (default, long, tree, columns), sorting, human-readable sizes, color schemes
 - **Configurable**: Persistent `~/.xcd.json` + environment variable overrides
-- **Tab completion**: Directories, `.md` files, image files, and parameter names
+- **Tab completion**: Directories, `.md` files, image/video files, and parameter names
 - **Full help**: `Get-Help xcd` with examples
 
 ## Installation
@@ -63,6 +63,7 @@ xcd ..
 xcd README.md          # Markdown viewer (glow/mdcat/bat fallback)
 xcd src/main.ts        # Syntax highlighted code
 xcd image.png          # Terminal image preview (catimg)
+xcd clip.mp4           # Video playback (mpv, bun-terminal-media-player fallback)
 xcd document.pdf       # Raw content fallback
 
 # Config management
@@ -78,6 +79,8 @@ Create `~/.xcd.json` (or run `xcd -EditConfig`):
 {
   "MarkdownViewer": "auto",
   "ImageViewer": "auto",
+  "VideoViewer": "auto",
+  "BunPlayerPath": "~/.bun-terminal-media-player",
   "ShowHidden": true,
   "GitStatus": true,
   "Colors": "default",
@@ -99,6 +102,8 @@ Create `~/.xcd.json` (or run `xcd -EditConfig`):
 | ----- | -------- | ------------- |
 | `MarkdownViewer` | `auto`, `glow`, `mdcat`, `bun`, `bat`, `cat` | Markdown renderer priority |
 | `ImageViewer` | `auto`, `catimg` | Image preview tool |
+| `VideoViewer` | `auto`, `mpv`, `bun`, `system` | Video player (`mpv` first, `bun` = bun-terminal-media-player, `system` = OS default) |
+| `BunPlayerPath` | path | Clone location of bun-terminal-media-player (default `~/.bun-terminal-media-player`) |
 | `ShowHidden` | `true`, `false` | Show hidden files in listing |
 | `GitStatus` | `true`, `false` | Show git porcelain status |
 | `Colors` | `default`, `dark`, `light` | Color scheme for output |
@@ -121,6 +126,9 @@ Listing-specific overrides:
 - `XCD_HUMAN_READABLE`, `XCD_SORT_BY`, `XCD_SORT_DESC`
 - `XCD_SHOW_PERMISSIONS`, `XCD_SHOW_OWNER`
 
+Video overrides:
+- `XCD_VIDEO_VIEWER`, `XCD_BUN_PLAYER_PATH`
+
 ## Dependencies
 
 Optional but recommended:
@@ -132,6 +140,8 @@ Optional but recommended:
 | `bat` | Syntax highlighting | `scoop install bat` / `brew install bat` |
 | `bun` | Fast markdown rendering | `scoop install bun` / `brew install bun` / `curl -fsSL https://bun.sh/install | bash` |
 | `catimg` | Terminal image preview | `Import-Module I:\dev\catimg\catimg.ps1` |
+| `mpv` | Video playback (primary) | `scoop install mpv` / `brew install mpv` |
+| `bun-terminal-media-player` | In-terminal ASCII video (Windows-only fallback) | `git clone https://github.com/involvex/bun-terminal-media-player.git ~/.bun-terminal-media-player` then `bun install` |
 | `git` | Git status in listings | Built-in |
 
 ## Requirements

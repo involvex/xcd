@@ -8,6 +8,7 @@
     - Directory: changes to it (Set-Location)
     - Markdown file: opens in preferred terminal viewer
     - Image file: displays in terminal (catimg)
+    - Video file: plays with mpv (or bun-terminal-media-player / system default)
     - Other file: displays with syntax highlighting (bat) or raw content
     - Supports ~, environment variables, and relative paths
 
@@ -66,6 +67,10 @@
     Displays image in terminal using catimg.
 
 .EXAMPLE
+    xcd clip.mp4
+    Plays video with mpv (or bun-terminal-media-player / system default).
+
+.EXAMPLE
     xcd -Format tree
     Shows directory tree view (depth 2).
 
@@ -87,10 +92,12 @@
 
 .NOTES
     Requires PowerShell 7+ for best experience.
-    Optional dependencies: glow, mdcat, bat, bun, catimg, git.
+    Optional dependencies: glow, mdcat, bat, bun, catimg, git, mpv.
     Configure via ~/.xcd.json or environment variables:
     - XCD_MD_VIEWER: markdown viewer (glow, mdcat, bun, bat)
     - XCD_IMAGE_VIEWER: image viewer (catimg)
+    - XCD_VIDEO_VIEWER: video player (auto, mpv, bun, system)
+    - XCD_BUN_PLAYER_PATH: path to bun-terminal-media-player clone
     - XCD_SHOW_HIDDEN: show hidden files (true/false)
     - XCD_GIT_STATUS: show git status in listing (true/false)
     - XCD_COLORS: color scheme (default, dark, light)
@@ -206,6 +213,8 @@ function Get-XcdConfig {
 $defaultConfig = @{
         MarkdownViewer       = 'auto'   # auto, glow, mdcat, bun, bat, cat
         ImageViewer          = 'auto'   # auto, catimg
+        VideoViewer          = 'auto'   # auto, mpv, bun, system
+        BunPlayerPath        = (Join-Path $HOME '.bun-terminal-media-player')
         ShowHidden           = $true
         GitStatus            = $true
         Colors               = 'default' # default, dark, light
@@ -220,42 +229,41 @@ $defaultConfig = @{
         ShowOwner            = $false
     }
 
+    $merged = @{}
     if (Test-Path $configPath) {
         try {
             $json = Get-Content $configPath -Raw | ConvertFrom-Json
-            $merged = @{}
             foreach ($key in $defaultConfig.Keys) {
                 $merged[$key] = if ($json.PSObject.Properties[$key]) { $json.$key } else { $defaultConfig[$key] }
             }
-            return $merged
         }
         catch {
             Write-Warning "xcd: Failed to parse $configPath, using defaults"
-            return $defaultConfig
+            foreach ($key in $defaultConfig.Keys) { $merged[$key] = $defaultConfig[$key] }
         }
     }
-
-    # Check environment variables as fallback
-    $envConfig = @{}
-    if ($env:XCD_MD_VIEWER)          { $envConfig.MarkdownViewer = $env:XCD_MD_VIEWER }
-    if ($env:XCD_IMAGE_VIEWER)       { $envConfig.ImageViewer = $env:XCD_IMAGE_VIEWER }
-    if ($env:XCD_SHOW_HIDDEN)        { $envConfig.ShowHidden = [bool]::Parse($env:XCD_SHOW_HIDDEN) }
-    if ($env:XCD_GIT_STATUS)         { $envConfig.GitStatus = [bool]::Parse($env:XCD_GIT_STATUS) }
-    if ($env:XCD_COLORS)             { $envConfig.Colors = $env:XCD_COLORS }
-    if ($env:XCD_ICONS)              { $envConfig.Icons = [bool]::Parse($env:XCD_ICONS) }
-    if ($env:XCD_LISTING_FORMAT)     { $envConfig.ListingFormat = $env:XCD_LISTING_FORMAT }
-    if ($env:XCD_TREE_DEPTH)         { $envConfig.TreeDepth = [int]$env:XCD_TREE_DEPTH }
-    if ($env:XCD_SHOW_SIZES)         { $envConfig.ShowSizes = [bool]::Parse($env:XCD_SHOW_SIZES) }
-    if ($env:XCD_HUMAN_READABLE)     { $envConfig.HumanReadableSizes = [bool]::Parse($env:XCD_HUMAN_READABLE) }
-    if ($env:XCD_SORT_BY)            { $envConfig.SortBy = $env:XCD_SORT_BY }
-    if ($env:XCD_SORT_DESC)          { $envConfig.SortDescending = [bool]::Parse($env:XCD_SORT_DESC) }
-    if ($env:XCD_SHOW_PERMISSIONS)   { $envConfig.ShowPermissions = [bool]::Parse($env:XCD_SHOW_PERMISSIONS) }
-    if ($env:XCD_SHOW_OWNER)         { $envConfig.ShowOwner = [bool]::Parse($env:XCD_SHOW_OWNER) }
-
-    $merged = @{}
-    foreach ($key in $defaultConfig.Keys) {
-        $merged[$key] = if ($envConfig.ContainsKey($key)) { $envConfig[$key] } else { $defaultConfig[$key] }
+    else {
+        foreach ($key in $defaultConfig.Keys) { $merged[$key] = $defaultConfig[$key] }
     }
+
+    # Environment variables take precedence over file config
+    if ($env:XCD_MD_VIEWER)          { $merged.MarkdownViewer = $env:XCD_MD_VIEWER }
+    if ($env:XCD_IMAGE_VIEWER)       { $merged.ImageViewer = $env:XCD_IMAGE_VIEWER }
+    if ($env:XCD_VIDEO_VIEWER)       { $merged.VideoViewer = $env:XCD_VIDEO_VIEWER }
+    if ($env:XCD_BUN_PLAYER_PATH)    { $merged.BunPlayerPath = $env:XCD_BUN_PLAYER_PATH }
+    if ($env:XCD_SHOW_HIDDEN)        { $merged.ShowHidden = [bool]::Parse($env:XCD_SHOW_HIDDEN) }
+    if ($env:XCD_GIT_STATUS)         { $merged.GitStatus = [bool]::Parse($env:XCD_GIT_STATUS) }
+    if ($env:XCD_COLORS)             { $merged.Colors = $env:XCD_COLORS }
+    if ($env:XCD_ICONS)              { $merged.Icons = [bool]::Parse($env:XCD_ICONS) }
+    if ($env:XCD_LISTING_FORMAT)     { $merged.ListingFormat = $env:XCD_LISTING_FORMAT }
+    if ($env:XCD_TREE_DEPTH)         { $merged.TreeDepth = [int]$env:XCD_TREE_DEPTH }
+    if ($env:XCD_SHOW_SIZES)         { $merged.ShowSizes = [bool]::Parse($env:XCD_SHOW_SIZES) }
+    if ($env:XCD_HUMAN_READABLE)     { $merged.HumanReadableSizes = [bool]::Parse($env:XCD_HUMAN_READABLE) }
+    if ($env:XCD_SORT_BY)            { $merged.SortBy = $env:XCD_SORT_BY }
+    if ($env:XCD_SORT_DESC)          { $merged.SortDescending = [bool]::Parse($env:XCD_SORT_DESC) }
+    if ($env:XCD_SHOW_PERMISSIONS)   { $merged.ShowPermissions = [bool]::Parse($env:XCD_SHOW_PERMISSIONS) }
+    if ($env:XCD_SHOW_OWNER)         { $merged.ShowOwner = [bool]::Parse($env:XCD_SHOW_OWNER) }
+
     return $merged
 }
 
@@ -729,6 +737,12 @@ function Invoke-XcdFile {
         return Invoke-XcdImage -Path $Path
     }
 
+    # Video files (mpv-first, bun-terminal-media-player fallback)
+    $videoExts = @('.mp4', '.mkv', '.avi', '.mov', '.webm', '.m4v', '.wmv', '.flv', '.ogv', '.mpg', '.mpeg', '.3gp')
+    if ($videoExts -contains $ext) {
+        return Invoke-XcdVideo -Path $Path
+    }
+
     if ($ext -eq '.md') {
         return Invoke-XcdMarkdown -Path $Path
     }
@@ -762,6 +776,64 @@ function Invoke-XcdImage {
     $item = Get-Item $Path
     Write-Host "Image: $($item.Name) ($([math]::Round($item.Length/1KB,1)) KB)"
     Write-Host "Dimensions: Use catimg module for preview"
+}
+
+function Invoke-XcdVideo {
+    param([string]$Path)
+
+    $viewer = $script:XcdConfig.VideoViewer
+    if (-not $viewer) { $viewer = 'auto' }
+
+    if ($viewer -eq 'auto') {
+        $viewerPriority = @('mpv', 'bun', 'system')
+    }
+    else {
+        $viewerPriority = @($viewer)
+    }
+
+    foreach ($v in $viewerPriority) {
+        if ($v -eq 'mpv') {
+            if (Get-Command mpv -ErrorAction SilentlyContinue) {
+                try { return & mpv $Path }
+                catch { }
+            }
+            elseif ($viewer -ne 'auto') {
+                Write-Error "xcd: mpv not found in PATH. Install with 'scoop install mpv'."
+                return 1
+            }
+            continue
+        }
+        if ($v -eq 'bun') {
+            $playerRoot = "$($script:XcdConfig.BunPlayerPath)"
+            if ($playerRoot -like '~*') { $playerRoot = $playerRoot -replace '^~', $HOME }
+            $playerRoot = $ExecutionContext.InvokeCommand.ExpandString($playerRoot)
+            $playerEntry = Join-Path $playerRoot 'src/index.ts'
+            if ((Get-Command bun -ErrorAction SilentlyContinue) -and (Test-Path $playerEntry)) {
+                try { return & bun $playerEntry $Path }
+                catch { }
+            }
+            elseif ($viewer -ne 'auto') {
+                Write-Error "xcd: bun player not found. Clone to '$playerRoot' (git clone https://github.com/involvex/bun-terminal-media-player.git) and run 'bun install', requires bun."
+                return 1
+            }
+            continue
+        }
+        if ($v -eq 'system') {
+            try {
+                Start-Process -FilePath $Path
+                return
+            }
+            catch { }
+            continue
+        }
+    }
+
+    # Final fallback: file info + install hint (Windows-only bun player, cross-platform mpv)
+    $item = Get-Item $Path -ErrorAction SilentlyContinue
+    if ($item) {
+        Write-Host "Video: $($item.Name) ($([math]::Round($item.Length/1MB,1)) MB)"
+    }
+    Write-Host "No video player found. Install mpv ('scoop install mpv') or set VideoViewer to 'system'."
 }
 
 function Invoke-XcdMarkdown {
@@ -833,8 +905,9 @@ Register-ArgumentCompleter -CommandName xcd -ScriptBlock {
     $dirs = Get-ChildItem -Directory -Force -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Name
     $files = Get-ChildItem -File -Filter "*.md" -Force -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Name
     $imageFiles = Get-ChildItem -File -Include "*.png","*.jpg","*.jpeg","*.gif","*.bmp","*.webp","*.ico","*.tiff","*.tif","*.svg" -Force -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Name
+    $videoFiles = Get-ChildItem -File -Include "*.mp4","*.mkv","*.avi","*.mov","*.webm","*.m4v","*.wmv","*.flv","*.ogv","*.mpg","*.mpeg","*.3gp" -Force -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Name
 
-    $allItems = $dirs + $files + $imageFiles + $paramNames + $formatValues + $sortValues
+    $allItems = $dirs + $files + $imageFiles + $videoFiles + $paramNames + $formatValues + $sortValues
 
     $allItems | Where-Object { $_ -like "$wordToComplete*" } | ForEach-Object {
         [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)
